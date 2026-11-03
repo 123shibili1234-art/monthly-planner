@@ -407,9 +407,13 @@ function renderCalendar() {
 
     // Blink red when at least one task (including its subtasks)
     // is not completely finished.
-    if (dayTasks.some((task) => !isFullyComplete(task))) {
-      button.classList.add("has-incomplete");
-    }
+    if (
+  key < todayKey() &&
+  dayTasks.some((task) => !isFullyComplete(task))
+) {
+  button.classList.add("has-incomplete");
+}
+
 
     button.addEventListener("click", () => {
 
