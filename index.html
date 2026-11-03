@@ -1,0 +1,94 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Monthly Planner</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header>
+        <h1>My Monthly Planner 📅</h1>
+        <p>Plan your days. Complete your goals.</p>
+    </header>
+
+    <main class="container">
+
+        <!-- CALENDAR SECTION -->
+
+        <section class="calendar">
+
+            <div class="calendar-header">
+
+                <button id="prevMonth">&lt;</button>
+
+                <h2 id="monthYear"></h2>
+
+                <button id="nextMonth">&gt;</button>
+
+            </div>
+
+            <div class="weekdays">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+
+            <div id="calendarDays" class="calendar-days"></div>
+
+        </section>
+
+
+        <!-- TASK SECTION -->
+
+        <section class="tasks">
+
+            <h2>My To-Do List ✨</h2>
+
+            <h3 id="selectedDateText">Select a date</h3>
+
+            <div class="task-input">
+
+                <input
+                    type="text"
+                    id="taskInput"
+                    placeholder="Enter your task..."
+                    maxlength="150"
+                >
+
+                <button id="addTaskBtn">Add Task</button>
+
+            </div>
+
+            <div class="progress">
+                <p id="progressText">0 of 0 completed</p>
+
+                <div class="progress-bar">
+                    <div id="progressFill"></div>
+                </div>
+            </div>
+
+            <div id="taskList"></div>
+
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Made by me ❤️ | My Personal Planner</p>
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
