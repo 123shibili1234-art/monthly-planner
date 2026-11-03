@@ -29,12 +29,27 @@ import {
 // Replace these values with your Firebase web app config.
 
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+ // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDu-EMbTgofefauQcvhjaX_tJlMKy73Ix0",
+  authDomain: "monthly-planner-aec01.firebaseapp.com",
+  projectId: "monthly-planner-aec01",
+  storageBucket: "monthly-planner-aec01.firebasestorage.app",
+  messagingSenderId: "891235625473",
+  appId: "1:891235625473:web:5ef5d8bc1e72d2d9c92e00",
+  measurementId: "G-37X6B5LCQL"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 };
 
 const app = initializeApp(firebaseConfig);
