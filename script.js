@@ -1,6 +1,7 @@
-// ==========================================
-// MONTHLY PLANNER 2.0
-// ==========================================
+
+ // ==========================================
+ // MONTHLY PLANNER 2.0
+ // ==========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
@@ -405,15 +406,15 @@ function renderCalendar() {
       button.classList.add("has-tasks");
     }
 
-    // Blink red when at least one task (including its subtasks)
-    // is not completely finished.
-    if (
-  key < todayKey() &&
-  dayTasks.some((task) => !isFullyComplete(task))
-) {
-  button.classList.add("has-incomplete");
-}
+    // RED BLINKING ONLY ON PAST INCOMPLETE DATES.
+    // Today and future dates never blink red.
 
+    if (
+      key < todayKey() &&
+      dayTasks.some((task) => !isFullyComplete(task))
+    ) {
+      button.classList.add("has-incomplete");
+    }
 
     button.addEventListener("click", () => {
 
@@ -567,6 +568,7 @@ function renderTasks() {
 
       saveDay(key);
       renderTasks();
+      renderCalendar();
     });
 
     const title = document.createElement("span");
@@ -640,8 +642,6 @@ function renderTasks() {
             task.subtasks.length > 0 &&
             task.subtasks.every((entry) => entry.done);
 
-          // Tell the user when the final subtask is checked.
-          // Keep subtasks visible until the main task is checked too.
           if (allSubtasksDone && !task.done) {
             showSubtaskCompletionNotice(task.text);
           }
@@ -670,6 +670,7 @@ function renderTasks() {
           );
 
           saveDay(key);
+          renderCalendar();
           renderTasks();
         });
 
@@ -726,6 +727,7 @@ function renderTasks() {
         });
 
         saveDay(key);
+        renderCalendar();
         renderTasks();
       });
 
@@ -882,10 +884,6 @@ $("copyMonthBtn").addEventListener("click", () => {
 // ==========================================
 // 12. REMINDERS
 // ==========================================
-
-// Reminders work while this page is open
-// and the browser allows its timer to run.
-// They are not guaranteed when Chrome is closed.
 
 function checkAlarms() {
 
