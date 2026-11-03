@@ -2,89 +2,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Monthly Planner</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#08050f">
+  <title>Monthly Planner</title>
+  <meta name="description" content="Plan your days. Organize your goals.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Monthly Planner">
+  <meta property="og:description" content="Plan • Organize • Achieve">
+  <meta property="og:image" content="https://YOUR-SITE-URL/preview.png">
+  <meta property="og:url" content="https://YOUR-SITE-URL/">
+  <link rel="icon" type="image/png" href="preview.png">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
 
-    <header>
-        <h1>My Monthly Planner 📅</h1>
-        <p>Plan your days. Complete your goals.</p>
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="brand-mark">✦</div>
+      <p class="eyebrow">PLAN • ORGANIZE • ACHIEVE</p>
+      <h1>MONTHLY <span>PLANNER</span></h1>
+      <p class="auth-subtitle">Your month. Your goals. Your space.</p>
+
+      <div class="auth-tabs">
+        <button id="loginTab" class="tab active" type="button">Log in</button>
+        <button id="signupTab" class="tab" type="button">Create account</button>
+      </div>
+
+      <form id="authForm">
+        <label for="usernameInput">Username</label>
+        <input id="usernameInput" autocomplete="username"
+          minlength="3" maxlength="20"
+          placeholder="e.g. shibili123" required>
+
+        <label for="passwordInput">Password</label>
+        <input id="passwordInput" type="password"
+          autocomplete="current-password"
+          minlength="6" placeholder="At least 6 characters" required>
+
+        <button id="authSubmit" class="primary-btn full" type="submit">
+          Log in
+        </button>
+      </form>
+
+      <p id="authMessage" class="message" role="status"></p>
+      <p class="small-note">Keep your password private and safe.</p>
+    </div>
+  </section>
+
+  <div id="plannerApp" class="hidden">
+    <header class="topbar">
+      <a class="wordmark" href="#">MONTHLY <span>PLANNER</span></a>
+      <div class="user-area">
+        <span id="welcomeUser"></span>
+        <button id="logoutBtn" class="ghost-btn">Log out</button>
+      </div>
     </header>
 
-    <main class="container">
+    <main class="layout">
+      <section class="calendar-panel panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">YOUR OVERVIEW</p>
+            <h2>Calendar</h2>
+          </div>
+          <div class="month-controls">
+            <button id="prevMonth" class="icon-btn">‹</button>
+            <button id="nextMonth" class="icon-btn">›</button>
+          </div>
+        </div>
 
-        <!-- CALENDAR -->
-        <section class="calendar">
-            <div class="calendar-header">
-                <button id="prevMonth">&lt;</button>
-                <h2 id="monthYear"></h2>
-                <button id="nextMonth">&gt;</button>
-            </div>
+        <h3 id="monthYear" class="month-title"></h3>
 
-            <div class="weekdays">
-                <div>Sun</div>
-                <div>Mon</div>
-                <div>Tue</div>
-                <div>Wed</div>
-                <div>Thu</div>
-                <div>Fri</div>
-                <div>Sat</div>
-            </div>
+        <div class="weekdays">
+          <span>Sun</span><span>Mon</span><span>Tue</span>
+          <span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
 
-            <div id="calendarDays" class="calendar-days"></div>
-        </section>
+        <div id="calendarDays" class="calendar-days"></div>
+        <div class="legend">
+          <span><i></i> Has tasks</span>
+          <span><i class="today-dot"></i> Today</span>
+        </div>
+      </section>
 
-        <!-- TASK SECTION -->
-        <section class="tasks">
+      <section class="tasks-panel panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">MAKE IT HAPPEN</p>
+            <h2>My tasks</h2>
+          </div>
+          <div class="progress-ring" id="progressRing">
+            <span id="progressPercent">0%</span>
+          </div>
+        </div>
 
-            <h2>My To-Do List ✨</h2>
-            <h3 id="selectedDateText">Select a date</h3>
+        <h3 id="selectedDateText" class="selected-date">Select a date</h3>
 
-            <!-- ADD TASK -->
-            <div class="task-input">
-                <input
-                    type="text"
-                    id="taskInput"
-                    placeholder="Enter your task..."
-                    maxlength="150"
-                >
+        <form id="taskForm" class="task-form">
+          <input id="taskInput" maxlength="150"
+            placeholder="What do you need to do?" required>
 
-                <input type="time" id="taskTime">
+          <div class="task-form-bottom">
+            <label class="time-label">
+              Reminder
+              <input id="taskTime" type="time">
+            </label>
+            <button class="primary-btn" type="submit">＋ Add task</button>
+          </div>
+        </form>
 
-                <button id="addTaskBtn">Add Task</button>
-            </div>
+        <div class="copy-controls">
+          <button id="copyTasksBtn" class="outline-btn">▣ Copy day</button>
+          <button id="pasteTasksBtn" class="outline-btn">▤ Paste day</button>
+          <button id="copyMonthBtn" class="outline-btn">▦ Copy to month</button>
+        </div>
 
-            <!-- COPY AND PASTE -->
-            <div class="copy-controls">
-                <button id="copyTasksBtn">📋 Copy Day</button>
-                <button id="pasteTasksBtn">📥 Paste Day</button>
-                <button id="copyMonthBtn">📅 Copy to Month</button>
-            </div>
+        <div class="progress-info">
+          <span id="progressText">0 of 0 completed</span>
+          <span id="remainingText"></span>
+        </div>
 
-            <!-- PROGRESS -->
-            <div class="progress">
-                <p id="progressText">0 of 0 completed</p>
+        <div class="progress-track">
+          <div id="progressFill"></div>
+        </div>
 
-                <div class="progress-bar">
-                    <div id="progressFill"></div>
-                </div>
-            </div>
-
-            <!-- TASK LIST -->
-            <div id="taskList"></div>
-
-        </section>
-
+        <div id="taskList" class="task-list"></div>
+        <p id="emptyState" class="empty-state">
+          No tasks yet. Add one small goal to get started ✨
+        </p>
+      </section>
     </main>
 
-    <footer>
-        <p>Made by me shibili | My Personal Planner</p>
-    </footer>
+    <footer>Made for your goals ✦ Monthly Planner</footer>
+  </div>
 
-    <script src="script.js"></script>
-
+  <script type="module" src="script.js"></script>
 </body>
 </html>
