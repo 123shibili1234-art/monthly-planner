@@ -1,4 +1,3 @@
-
 // ==========================================
 // MONTHLY PLANNER 2.0
 // ==========================================
@@ -400,8 +399,16 @@ function renderCalendar() {
       button.classList.add("selected");
     }
 
-    if ((allTasks[key] || []).length) {
+    const dayTasks = allTasks[key] || [];
+
+    if (dayTasks.length) {
       button.classList.add("has-tasks");
+    }
+
+    // Blink red when at least one task (including its subtasks)
+    // is not completely finished.
+    if (dayTasks.some((task) => !isFullyComplete(task))) {
+      button.classList.add("has-incomplete");
     }
 
     button.addEventListener("click", () => {
@@ -461,6 +468,18 @@ function isFullyComplete(task) {
 
   return task.done &&
     subs.every((sub) => sub.done);
+}
+
+
+// Show a message when all subtasks are ticked.
+function showSubtaskCompletionNotice(taskText) {
+  const message = `All subtasks for "${taskText}" are complete! Now tick the main task to finish it.`;
+
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification("Monthly Planner", { body: message });
+  } else {
+    alert(message);
+  }
 }
 
 
@@ -613,7 +632,18 @@ function renderTasks() {
 
           sub.done = subCheck.checked;
 
+          const allSubtasksDone =
+            task.subtasks.length > 0 &&
+            task.subtasks.every((entry) => entry.done);
+
+          // Tell the user when the final subtask is checked.
+          // Keep subtasks visible until the main task is checked too.
+          if (allSubtasksDone && !task.done) {
+            showSubtaskCompletionNotice(task.text);
+          }
+
           saveDay(key);
+          renderCalendar();
           renderTasks();
         });
 
