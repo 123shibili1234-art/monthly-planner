@@ -26,17 +26,6 @@ import {
 // 1. FIREBASE CONFIGURATION
 // ==========================================
 
-// Replace these values with your Firebase web app config.
-
-const firebaseConfig = {
- // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDu-EMbTgofefauQcvhjaX_tJlMKy73Ix0",
   authDomain: "monthly-planner-aec01.firebaseapp.com",
@@ -45,11 +34,6 @@ const firebaseConfig = {
   messagingSenderId: "891235625473",
   appId: "1:891235625473:web:5ef5d8bc1e72d2d9c92e00",
   measurementId: "G-37X6B5LCQL"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 };
 
 const app = initializeApp(firebaseConfig);
@@ -106,7 +90,6 @@ const usernameEmail = (username) =>
 
 function showMessage(message, good = false) {
   $("authMessage").textContent = message;
-
   $("authMessage").style.color =
     good ? "#8ee6b2" : "#f0a5a5";
 }
@@ -208,7 +191,10 @@ $("authForm").addEventListener("submit", async (event) => {
         "Choose a stronger password.",
 
       "auth/network-request-failed":
-        "Network error. Check your internet connection."
+        "Network error. Check your internet connection.",
+
+      "auth/operation-not-allowed":
+        "Enable Email/Password in Firebase Authentication."
     };
 
     showMessage(
