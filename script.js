@@ -1,493 +1,3 @@
-
- // ==========================================
- // MONTHLY PLANNER 2.0
- // ==========================================
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-
-// ==========================================
-// 1. FIREBASE CONFIGURATION
-// ==========================================
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDu-EMbTgofefauQcvhjaX_tJlMKy73Ix0",
-  authDomain: "monthly-planner-aec01.firebaseapp.com",
-  projectId: "monthly-planner-aec01",
-  storageBucket: "monthly-planner-aec01.firebasestorage.app",
-  messagingSenderId: "891235625473",
-  appId: "1:891235625473:web:5ef5d8bc1e72d2d9c92e00",
-  measurementId: "G-37X6B5LCQL"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-
-// ==========================================
-// 2. VARIABLES
-// ==========================================
-
-const $ = (id) => document.getElementById(id);
-
-let mode = "login";
-let currentUser = null;
-let selectedDate = new Date();
-let viewDate = new Date();
-let allTasks = {};
-let copiedTasks = [];
-let unsubscribeTasks = null;
-let saveQueue = Promise.resolve();
-let lastAlarmMinute = "";
-
-
-// ==========================================
-// 3. DATE HELPERS
-// ==========================================
-
-const dateKey = (date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-
-  return `${y}-${m}-${d}`;
-};
-
-const todayKey = () => dateKey(new Date());
-
-const makeId = () =>
-  crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`;
-
-const safeUsername = (value) =>
-  value.trim().toLowerCase();
-
-const usernameEmail = (username) =>
-  `${safeUsername(username)}@monthlyplanner.app`;
-
-
-// ==========================================
-// 4. LOGIN AND SIGNUP
-// ==========================================
-
-function showMessage(message, good = false) {
-  $("authMessage").textContent = message;
-  $("authMessage").style.color =
-    good ? "#8ee6b2" : "#f0a5a5";
-}
-
-function setMode(next) {
-  mode = next;
-
-  $("loginTab").classList.toggle(
-    "active",
-    mode === "login"
-  );
-
-  $("signupTab").classList.toggle(
-    "active",
-    mode === "signup"
-  );
-
-  $("authSubmit").textContent =
-    mode === "login" ? "Log in" : "Create account";
-
-  $("passwordInput").autocomplete =
-    mode === "login"
-      ? "current-password"
-      : "new-password";
-
-  showMessage("");
-}
-
-$("loginTab").addEventListener("click", () => {
-  setMode("login");
-});
-
-$("signupTab").addEventListener("click", () => {
-  setMode("signup");
-});
-
-$("authForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const username = safeUsername(
-    $("usernameInput").value
-  );
-
-  const password = $("passwordInput").value;
-
-  if (!/^[a-z0-9_]{3,20}$/.test(username)) {
-    showMessage(
-      "Use 3–20 characters: letters, numbers or underscores."
-    );
-    return;
-  }
-
-  if (password.length < 6) {
-    showMessage(
-      "Password must be at least 6 characters."
-    );
-    return;
-  }
-
-  $("authSubmit").disabled = true;
-
-  showMessage(
-    mode === "login"
-      ? "Logging in..."
-      : "Creating your account...",
-    true
-  );
-
-  try {
-    const email = usernameEmail(username);
-
-    if (mode === "signup") {
-      await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-    } else {
-      await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-    }
-
-  } catch (error) {
-
-    const messages = {
-      "auth/email-already-in-use":
-        "That username is already taken. Try logging in.",
-
-      "auth/invalid-credential":
-        "Username or password is incorrect.",
-
-      "auth/user-not-found":
-        "Account not found. Create an account first.",
-
-      "auth/weak-password":
-        "Choose a stronger password.",
-
-      "auth/network-request-failed":
-        "Network error. Check your internet connection.",
-
-      "auth/operation-not-allowed":
-        "Enable Email/Password in Firebase Authentication."
-    };
-
-    showMessage(
-      messages[error.code] ||
-      `Could not continue: ${error.message}`
-    );
-
-  } finally {
-    $("authSubmit").disabled = false;
-  }
-});
-
-$("logoutBtn").addEventListener("click", () => {
-  signOut(auth);
-});
-
-
-// ==========================================
-// 5. ACCOUNT SESSION AND CLOUD TASKS
-// ==========================================
-
-onAuthStateChanged(auth, (user) => {
-
-  currentUser = user;
-
-  if (unsubscribeTasks) {
-    unsubscribeTasks();
-    unsubscribeTasks = null;
-  }
-
-  if (!user) {
-    $("plannerApp").classList.add("hidden");
-    $("authScreen").classList.remove("hidden");
-
-    allTasks = {};
-    return;
-  }
-
-  $("authScreen").classList.add("hidden");
-  $("plannerApp").classList.remove("hidden");
-
-  const username = user.email.split("@")[0];
-
-  $("welcomeUser").textContent = `Hi, ${username}`;
-
-  selectedDate = new Date();
-  viewDate = new Date();
-
-  const daysRef = collection(
-    db,
-    "users",
-    user.uid,
-    "days"
-  );
-
-  unsubscribeTasks = onSnapshot(daysRef, (snapshot) => {
-
-    const next = {};
-
-    snapshot.forEach((dayDoc) => {
-      const data = dayDoc.data();
-
-      next[dayDoc.id] =
-        Array.isArray(data.tasks)
-          ? data.tasks
-          : [];
-    });
-
-    allTasks = next;
-
-    renderCalendar();
-    renderTasks();
-
-  }, (error) => {
-    console.error(error);
-
-    alert(
-      "Could not load your tasks. Check your Firebase setup."
-    );
-  });
-
-});
-
-
-// ==========================================
-// 6. SAVE TASKS TO FIREBASE
-// ==========================================
-
-function saveDay(key) {
-
-  if (!currentUser) return;
-
-  const tasks = allTasks[key] || [];
-
-  const ref = doc(
-    db,
-    "users",
-    currentUser.uid,
-    "days",
-    key
-  );
-
-  saveQueue = saveQueue
-    .then(() => setDoc(ref, {
-      tasks,
-      updatedAt: Date.now()
-    }))
-    .catch((error) => {
-      console.error(error);
-
-      alert(
-        "Your change could not be saved. Check your internet connection."
-      );
-    });
-}
-
-
-// ==========================================
-// 7. CALENDAR
-// ==========================================
-
-function renderCalendar() {
-
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-
-  $("monthYear").textContent =
-    viewDate.toLocaleDateString(undefined, {
-      month: "long",
-      year: "numeric"
-    });
-
-  const firstDay =
-    new Date(year, month, 1).getDay();
-
-  const daysInMonth =
-    new Date(year, month + 1, 0).getDate();
-
-  const previousMonthDays =
-    new Date(year, month, 0).getDate();
-
-  const fragment =
-    document.createDocumentFragment();
-
-  for (let index = 0; index < 42; index++) {
-
-    let dayNumber;
-    let date;
-    let muted = false;
-
-    if (index < firstDay) {
-
-      dayNumber =
-        previousMonthDays - firstDay + index + 1;
-
-      date = new Date(
-        year,
-        month - 1,
-        dayNumber
-      );
-
-      muted = true;
-
-    } else if (index >= firstDay + daysInMonth) {
-
-      dayNumber =
-        index - firstDay - daysInMonth + 1;
-
-      date = new Date(
-        year,
-        month + 1,
-        dayNumber
-      );
-
-      muted = true;
-
-    } else {
-
-      dayNumber = index - firstDay + 1;
-
-      date = new Date(
-        year,
-        month,
-        dayNumber
-      );
-    }
-
-    const key = dateKey(date);
-
-    const button = document.createElement("button");
-
-    button.type = "button";
-    button.className = "day";
-    button.textContent = dayNumber;
-
-    if (muted) button.classList.add("muted");
-
-    if (key === todayKey()) {
-      button.classList.add("today");
-    }
-
-    if (key === dateKey(selectedDate)) {
-      button.classList.add("selected");
-    }
-
-    const dayTasks = allTasks[key] || [];
-
-    if (dayTasks.length) {
-      button.classList.add("has-tasks");
-    }
-
-    // RED BLINKING ONLY ON PAST INCOMPLETE DATES.
-    // Today and future dates never blink red.
-
-    if (
-      key < todayKey() &&
-      dayTasks.some((task) => !isFullyComplete(task))
-    ) {
-      button.classList.add("has-incomplete");
-    }
-
-    button.addEventListener("click", () => {
-
-      selectedDate = date;
-
-      if (date.getMonth() !== viewDate.getMonth()) {
-        viewDate = new Date(
-          date.getFullYear(),
-          date.getMonth(),
-          1
-        );
-      }
-
-      renderCalendar();
-      renderTasks();
-    });
-
-    fragment.appendChild(button);
-  }
-
-  $("calendarDays").replaceChildren(fragment);
-}
-
-$("prevMonth").addEventListener("click", () => {
-
-  viewDate = new Date(
-    viewDate.getFullYear(),
-    viewDate.getMonth() - 1,
-    1
-  );
-
-  renderCalendar();
-});
-
-$("nextMonth").addEventListener("click", () => {
-
-  viewDate = new Date(
-    viewDate.getFullYear(),
-    viewDate.getMonth() + 1,
-    1
-  );
-
-  renderCalendar();
-});
-
-
-// ==========================================
-// 8. SUBTASK COMPLETION CHECK
-// ==========================================
-
-function isFullyComplete(task) {
-
-  const subs = Array.isArray(task.subtasks)
-    ? task.subtasks
-    : [];
-
-  return task.done &&
-    subs.every((sub) => sub.done);
-}
-
-
-// Show a message when all subtasks are ticked.
-function showSubtaskCompletionNotice(taskText) {
-  const message = `All subtasks for "${taskText}" are complete! Now tick the main task to finish it.`;
-
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("Monthly Planner", { body: message });
-  } else {
-    alert(message);
-  }
-}
-
-
 // ==========================================
 // 9. DISPLAY TASKS
 // ==========================================
@@ -585,6 +95,44 @@ function renderTasks() {
     time.textContent =
       task.time ? `◷ ${task.time}` : "";
 
+    // EDIT MAIN TASK
+    const edit = document.createElement("button");
+
+    edit.type = "button";
+    edit.className = "edit-btn";
+    edit.textContent = "✎";
+    edit.title = "Rename task";
+
+    edit.style.background = "transparent";
+    edit.style.border = "none";
+    edit.style.color = "#b58cff";
+    edit.style.cursor = "pointer";
+    edit.style.fontSize = "18px";
+
+    edit.addEventListener("click", () => {
+
+      const updatedText = prompt(
+        "Enter the new task name:",
+        task.text
+      );
+
+      if (updatedText === null) return;
+
+      const cleanedText = updatedText.trim();
+
+      if (!cleanedText) {
+        alert("Task name cannot be empty.");
+        return;
+      }
+
+      task.text = cleanedText;
+
+      saveDay(key);
+      renderTasks();
+      renderCalendar();
+    });
+
+    // DELETE MAIN TASK
     const remove = document.createElement("button");
 
     remove.className = "delete-btn";
@@ -607,15 +155,13 @@ function renderTasks() {
       checkbox,
       title,
       time,
+      edit,
       remove
     );
 
     item.appendChild(main);
 
-
-    // Hide subtasks when the main task
-    // AND every subtask are completed.
-
+    // HIDE SUBTASKS WHEN EVERYTHING IS COMPLETE
     if (!isFullyComplete(task)) {
 
       const subArea = document.createElement("div");
@@ -655,6 +201,47 @@ function renderTasks() {
 
         subText.textContent = sub.text;
 
+        // EDIT SUBTASK
+        const subEdit = document.createElement("button");
+
+        subEdit.type = "button";
+        subEdit.className = "edit-btn";
+        subEdit.textContent = "✎";
+        subEdit.title = "Rename subtask";
+
+        subEdit.style.background = "transparent";
+        subEdit.style.border = "none";
+        subEdit.style.color = "#b58cff";
+        subEdit.style.cursor = "pointer";
+        subEdit.style.fontSize = "16px";
+
+        subEdit.addEventListener("click", (event) => {
+
+          event.preventDefault();
+          event.stopPropagation();
+
+          const updatedText = prompt(
+            "Enter the new subtask name:",
+            sub.text
+          );
+
+          if (updatedText === null) return;
+
+          const cleanedText = updatedText.trim();
+
+          if (!cleanedText) {
+            alert("Subtask name cannot be empty.");
+            return;
+          }
+
+          sub.text = cleanedText;
+
+          saveDay(key);
+          renderTasks();
+          renderCalendar();
+        });
+
+        // DELETE SUBTASK
         const subDelete = document.createElement("button");
 
         subDelete.type = "button";
@@ -664,6 +251,7 @@ function renderTasks() {
         subDelete.addEventListener("click", (event) => {
 
           event.preventDefault();
+          event.stopPropagation();
 
           task.subtasks = task.subtasks.filter(
             (entry) => entry.id !== sub.id
@@ -677,15 +265,14 @@ function renderTasks() {
         row.append(
           subCheck,
           subText,
+          subEdit,
           subDelete
         );
 
         subArea.appendChild(row);
       });
 
-
-      // Add new subtask
-
+      // ADD NEW SUBTASK
       const addRow = document.createElement("form");
 
       addRow.className = "subtask-add";
@@ -739,207 +326,3 @@ function renderTasks() {
     list.appendChild(item);
   });
 }
-
-
-// ==========================================
-// 10. ADD MAIN TASK
-// ==========================================
-
-$("taskForm").addEventListener("submit", (event) => {
-
-  event.preventDefault();
-
-  const text = $("taskInput").value.trim();
-
-  if (!text) return;
-
-  const key = dateKey(selectedDate);
-
-  if (!allTasks[key]) {
-    allTasks[key] = [];
-  }
-
-  allTasks[key].push({
-    id: makeId(),
-    text,
-    done: false,
-    time: $("taskTime").value || "",
-    alarmFired: false,
-    subtasks: []
-  });
-
-  $("taskInput").value = "";
-  $("taskTime").value = "";
-
-  saveDay(key);
-  renderCalendar();
-  renderTasks();
-
-  if (
-    "Notification" in window &&
-    Notification.permission === "default"
-  ) {
-    Notification.requestPermission().catch(() => {});
-  }
-});
-
-
-// ==========================================
-// 11. COPY AND PASTE TASKS
-// ==========================================
-
-function cloneTasks(tasks) {
-
-  return tasks.map((task) => ({
-    ...task,
-
-    id: makeId(),
-
-    done: false,
-
-    alarmFired: false,
-
-    subtasks: (task.subtasks || []).map((sub) => ({
-      ...sub,
-      id: makeId(),
-      done: false
-    }))
-  }));
-}
-
-$("copyTasksBtn").addEventListener("click", () => {
-
-  copiedTasks = JSON.parse(
-    JSON.stringify(
-      allTasks[dateKey(selectedDate)] || []
-    )
-  );
-
-  alert(
-    copiedTasks.length
-      ? `Copied ${copiedTasks.length} task(s). Select another date and choose Paste day.`
-      : "There are no tasks to copy on this date."
-  );
-});
-
-$("pasteTasksBtn").addEventListener("click", () => {
-
-  if (!copiedTasks.length) {
-    alert("Copy a day first.");
-    return;
-  }
-
-  const key = dateKey(selectedDate);
-
-  allTasks[key] = [
-    ...(allTasks[key] || []),
-    ...cloneTasks(copiedTasks)
-  ];
-
-  saveDay(key);
-  renderCalendar();
-  renderTasks();
-});
-
-$("copyMonthBtn").addEventListener("click", () => {
-
-  const source =
-    allTasks[dateKey(selectedDate)] || [];
-
-  if (!source.length) {
-    alert("There are no tasks to copy on this date.");
-    return;
-  }
-
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-
-  for (
-    let day = 1;
-    day <= new Date(year, month + 1, 0).getDate();
-    day++
-  ) {
-
-    const targetDate = new Date(year, month, day);
-    const key = dateKey(targetDate);
-
-    if (key === dateKey(selectedDate)) continue;
-
-    allTasks[key] = [
-      ...(allTasks[key] || []),
-      ...cloneTasks(source)
-    ];
-
-    saveDay(key);
-  }
-
-  renderCalendar();
-
-  alert(
-    "Copied these tasks to every other day in this month."
-  );
-});
-
-
-// ==========================================
-// 12. REMINDERS
-// ==========================================
-
-function checkAlarms() {
-
-  if (!currentUser) return;
-
-  const now = new Date();
-
-  const minuteKey =
-    `${todayKey()}-${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-  if (minuteKey === lastAlarmMinute) return;
-
-  lastAlarmMinute = minuteKey;
-
-  const key = todayKey();
-
-  const tasks = allTasks[key] || [];
-
-  let changed = false;
-
-  tasks.forEach((task) => {
-
-    const currentTime =
-      `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-    if (
-      task.time === currentTime &&
-      !task.alarmFired &&
-      !task.done
-    ) {
-
-      task.alarmFired = true;
-      changed = true;
-
-      const message = `It's time for: ${task.text}`;
-
-      if (
-        "Notification" in window &&
-        Notification.permission === "granted"
-      ) {
-
-        new Notification(
-          "Monthly Planner reminder",
-          { body: message }
-        );
-
-      } else {
-
-        alert(message);
-      }
-    }
-  });
-
-  if (changed) {
-    saveDay(key);
-  }
-}
-
-setInterval(checkAlarms, 10000);
