@@ -1,6 +1,6 @@
 
 // =============================================
-// MONTHLY PLANNER — COMPLETE REPLACEMENT SCRIPT
+// MONTHLY PLANNER — COMPLETE FIREBASE SCRIPT
 // =============================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
@@ -67,9 +67,8 @@ function usernameToEmail(username) {
 }
 
 function makeId() {
-  return crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function dateKey(date) {
@@ -91,28 +90,24 @@ function isFullyComplete(task) {
     subtasks.every(sub => sub.done);
 }
 
-function showAuthMessage(message, error = true) {
-  $("authMessage").textContent = message;
-  $("authMessage").style.color =
-    error ? "#f0a5a5" : "#a7f3d0";
-}
+function escapeMessage(error) {
+  const code = error?.code || "";
 
-function getErrorMessage(error) {
   const messages = {
     "auth/email-already-in-use":
-      "This username already exists. Please log in.",
+      "This username already has an account. Please log in.",
 
     "auth/invalid-email":
       "Please enter a valid username.",
 
     "auth/weak-password":
-      "Password must contain at least 6 characters.",
+      "Your password must contain at least 6 characters.",
 
     "auth/user-not-found":
-      "Account not found. Please create an account first.",
+      "No account found with this username. Create an account first.",
 
     "auth/wrong-password":
-      "Incorrect password.",
+      "Incorrect password. Please try again.",
 
     "auth/invalid-credential":
       "Incorrect username or password.",
@@ -130,12 +125,19 @@ function getErrorMessage(error) {
       "Add your website domain to Firebase authorized domains.",
 
     "permission-denied":
-      "Firestore access denied. Check your security rules."
+      "Firestore access denied. Check your Firestore rules."
   };
 
-  return messages[error.code] ||
-    error.message ||
-    "Something went wrong.";
+  return messages[code] ||
+    error?.message ||
+    "Something went wrong. Please try again.";
+}
+
+function setAuthMessage(message, isError = true) {
+  $("authMessage").textContent = message;
+
+  $("authMessage").style.color =
+    isError ? "#f0a5a5" : "#a7f3d0";
 }
 
 // =============================================
@@ -154,7 +156,7 @@ function setAuthMode(signup) {
   $("passwordInput").autocomplete =
     signup ? "new-password" : "current-password";
 
-  showAuthMessage("");
+  setAuthMessage("");
 }
 
 $("loginTab").addEventListener("click", () => {
@@ -174,15 +176,15 @@ $("authForm").addEventListener("submit", async event => {
   const password = $("passwordInput").value;
 
   if (!/^[a-z0-9_]{3,20}$/.test(username)) {
-    showAuthMessage(
-      "Username must be 3–20 characters. Use letters, numbers or underscores."
+    setAuthMessage(
+      "Username must be 3–20 characters and use only letters, numbers or underscores."
     );
     return;
   }
 
   if (password.length < 6) {
-    showAuthMessage(
-      "Password must contain at least 6 characters."
+    setAuthMessage(
+      "Your password must contain at least 6 characters."
     );
     return;
   }
@@ -193,7 +195,7 @@ $("authForm").addEventListener("submit", async event => {
   button.textContent =
     isSignup ? "Creating account..." : "Logging in...";
 
-  showAuthMessage("");
+  setAuthMessage("");
 
   try {
     const email = usernameToEmail(username);
@@ -213,72 +215,18 @@ $("authForm").addEventListener("submit", async event => {
     }
 
   } catch (error) {
-    showAuthMessage(getErrorMessage(error));
+    setAuthMessage(escapeMessage(error));
 
   } finally {
     button.disabled = false;
+
     button.textContent =
       isSignup ? "Create account" : "Log in";
   }
 });
 
 // =============================================
-// 5. AUTHENTICATION STATE
-// =============================================
-
-function showPlanner(user) {
-  currentUser = user;
-
-  $("authScreen").classList.add("hidden");
-  $("plannerApp").classList.remove("hidden");
-
-  $("welcomeUser").textContent =
-    user.email.split("@")[0];
-}
-
-function showLogin() {
-  currentUser = null;
-  allTasks = {};
-
-  $("plannerApp").classList.add("hidden");
-  $("authScreen").classList.remove("hidden");
-
-  $("welcomeUser").textContent = "";
-}
-
-onAuthStateChanged(auth, async user => {
-  if (user) {
-    currentUser = user;
-    showPlanner(user);
-
-    try {
-      await loadAllTasks();
-      renderCalendar();
-      renderTasks();
-
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "Tasks could not be loaded. Check your Firestore settings."
-      );
-    }
-
-  } else {
-    showLogin();
-  }
-});
-
-$("logoutBtn").addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    alert(getErrorMessage(error));
-  }
-});
-
-// =============================================
-// 6. FIRESTORE LOAD AND SAVE
+// 5. FIRESTORE LOAD AND SAVE
 // =============================================
 
 async function loadAllTasks() {
@@ -319,13 +267,69 @@ async function saveDay(key) {
     });
 
   } catch (error) {
-    console.error("Save error:", error);
+    console.error("Could not save tasks:", error);
 
     alert(
-      "Could not save changes. Check your internet and Firestore rules."
+      "Your changes could not be saved. Check your internet connection and Firestore rules."
     );
   }
 }
+
+// =============================================
+// 6. AUTHENTICATION STATE
+// =============================================
+
+function showPlanner(user) {
+  currentUser = user;
+
+  $("authScreen").classList.add("hidden");
+  $("plannerApp").classList.remove("hidden");
+
+  $("welcomeUser").textContent =
+    user.displayName || user.email.split("@")[0];
+}
+
+function showLogin() {
+  currentUser = null;
+  allTasks = {};
+
+  $("plannerApp").classList.add("hidden");
+  $("authScreen").classList.remove("hidden");
+
+  $("welcomeUser").textContent = "";
+}
+
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    currentUser = user;
+    showPlanner(user);
+
+    try {
+      await loadAllTasks();
+
+      renderCalendar();
+      renderTasks();
+
+    } catch (error) {
+      console.error("Task loading failed:", error);
+
+      alert(
+        "You are logged in, but your tasks could not be loaded. Check Firestore rules."
+      );
+    }
+
+  } else {
+    showLogin();
+  }
+});
+
+$("logoutBtn").addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    alert(escapeMessage(error));
+  }
+});
 
 // =============================================
 // 7. CALENDAR
@@ -342,6 +346,7 @@ function renderCalendar() {
     });
 
   const firstDay = new Date(year, month, 1).getDay();
+
   const daysInMonth =
     new Date(year, month + 1, 0).getDate();
 
@@ -367,6 +372,11 @@ function renderCalendar() {
 
     const tasks = allTasks[key] || [];
 
+    const hasTasks = tasks.length > 0;
+
+    const hasIncomplete =
+      tasks.some(task => !isFullyComplete(task));
+
     const button = document.createElement("button");
 
     button.type = "button";
@@ -381,13 +391,19 @@ function renderCalendar() {
       button.classList.add("selected");
     }
 
-    if (tasks.length) {
+    if (hasTasks) {
       button.classList.add("has-tasks");
     }
 
-    if (tasks.some(task => !isFullyComplete(task))) {
+    // RED ONLY FOR PAST DAYS WITH INCOMPLETE TASKS
+    if (key < todayKey && hasIncomplete) {
       button.classList.add("has-incomplete");
     }
+
+    button.setAttribute(
+      "aria-label",
+      `${date.toDateString()}${hasTasks ? `, ${tasks.length} tasks` : ""}`
+    );
 
     button.addEventListener("click", () => {
       selectedDate = date;
@@ -453,6 +469,7 @@ function renderTasks() {
   if (!currentUser) return;
 
   const key = dateKey(selectedDate);
+
   const tasks = allTasks[key] || [];
 
   $("selectedDateText").textContent =
@@ -476,7 +493,7 @@ function renderTasks() {
   $("remainingText").textContent =
     tasks.length - doneCount
       ? `${tasks.length - doneCount} left`
-      : tasks.length ? "All done!" : "";
+      : (tasks.length ? "All done!" : "");
 
   $("progressFill").style.width = `${percent}%`;
 
@@ -502,9 +519,11 @@ function renderTasks() {
     }
 
     const item = document.createElement("article");
+
     item.className = "task-item";
 
     const main = document.createElement("div");
+
     main.className = "task-main";
 
     // TASK CHECKBOX
@@ -512,6 +531,11 @@ function renderTasks() {
 
     checkbox.type = "checkbox";
     checkbox.checked = !!task.done;
+
+    checkbox.setAttribute(
+      "aria-label",
+      `Complete ${task.text}`
+    );
 
     checkbox.addEventListener("change", async () => {
       task.done = checkbox.checked;
@@ -539,16 +563,16 @@ function renderTasks() {
       ? `◷ ${task.time}`
       : "";
 
-    // RENAME TASK
+    // EDIT TASK BUTTON
     const edit = document.createElement("button");
 
     edit.type = "button";
     edit.className = "edit-btn";
-    edit.textContent = "✎";
+    edit.textContent = "Edit Task";
     edit.title = "Rename task";
 
     edit.style.cssText =
-      "background:transparent;border:none;color:#b58cff;cursor:pointer;font-size:18px";
+      "background:#352044;border:1px solid #9b55d5;color:#e9d5ff;cursor:pointer;font-size:12px;padding:6px 9px;border-radius:7px;white-space:nowrap";
 
     edit.addEventListener("click", async () => {
       const updated = prompt(
@@ -572,12 +596,14 @@ function renderTasks() {
       await saveDay(key);
     });
 
-    // DELETE TASK
+    // DELETE TASK BUTTON
     const remove = document.createElement("button");
 
     remove.type = "button";
     remove.className = "delete-btn";
     remove.textContent = "×";
+
+    remove.setAttribute("aria-label", "Delete task");
 
     remove.addEventListener("click", async () => {
       if (!confirm(
@@ -624,6 +650,11 @@ function renderTasks() {
         subCheck.type = "checkbox";
         subCheck.checked = !!sub.done;
 
+        subCheck.setAttribute(
+          "aria-label",
+          `Complete ${sub.text}`
+        );
+
         subCheck.addEventListener("change", async () => {
           sub.done = subCheck.checked;
 
@@ -638,16 +669,16 @@ function renderTasks() {
 
         subText.textContent = sub.text;
 
-        // RENAME SUBTASK
+        // EDIT SUBTASK BUTTON
         const subEdit = document.createElement("button");
 
         subEdit.type = "button";
         subEdit.className = "edit-btn";
-        subEdit.textContent = "✎";
+        subEdit.textContent = "Edit Subtask";
         subEdit.title = "Rename subtask";
 
         subEdit.style.cssText =
-          "background:transparent;border:none;color:#b58cff;cursor:pointer;font-size:16px";
+          "background:#352044;border:1px solid #9b55d5;color:#e9d5ff;cursor:pointer;font-size:11px;padding:5px 8px;border-radius:7px;white-space:nowrap";
 
         subEdit.addEventListener("click", async () => {
           const updated = prompt(
@@ -671,12 +702,17 @@ function renderTasks() {
           await saveDay(key);
         });
 
-        // DELETE SUBTASK
+        // DELETE SUBTASK BUTTON
         const subDelete = document.createElement("button");
 
         subDelete.type = "button";
         subDelete.className = "delete-btn";
         subDelete.textContent = "×";
+
+        subDelete.setAttribute(
+          "aria-label",
+          "Delete subtask"
+        );
 
         subDelete.addEventListener("click", async () => {
           task.subtasks =
@@ -707,12 +743,23 @@ function renderTasks() {
 
       input.placeholder = "Add a subtask...";
       input.maxLength = 120;
+
+      input.setAttribute(
+        "aria-label",
+        "New subtask"
+      );
+
       input.required = true;
 
       const add = document.createElement("button");
 
       add.type = "submit";
       add.textContent = "+";
+
+      add.setAttribute(
+        "aria-label",
+        "Add subtask"
+      );
 
       addRow.append(input, add);
 
@@ -736,6 +783,7 @@ function renderTasks() {
       });
 
       subArea.appendChild(addRow);
+
       item.appendChild(subArea);
     }
 
@@ -802,7 +850,7 @@ $("copyMonthBtn").addEventListener("click", async () => {
   const sourceTasks = allTasks[sourceKey] || [];
 
   if (!sourceTasks.length) {
-    alert("There are no tasks on this day to copy.");
+    alert("There are no tasks on the selected day to copy.");
     return;
   }
 
@@ -813,7 +861,7 @@ $("copyMonthBtn").addEventListener("click", async () => {
     });
 
   if (!confirm(
-    `Copy these ${sourceTasks.length} task(s) to every other day in ${monthName}? Existing tasks will be kept.`
+    `Copy these ${sourceTasks.length} task(s) to every other day in ${monthName}? Existing tasks on other days will be kept.`
   )) return;
 
   const year = displayedMonth.getFullYear();
